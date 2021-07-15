@@ -1,0 +1,52 @@
+public class BankingSoftware {
+    public static void transferSys(List<Cheque__c> chList){
+        Set<Id> fromId = new Set<Id>();
+        Set<Id> toId = new Set<Id>();
+        if(chList != null && chList.size() > 0){
+            for(Cheque__c ch : chList){
+                if(ch.Type__c == 'Digital' && ch.From_Account__c !=null  && 
+                   ch.To_Accountt__c != null && ch.Amount__c !=null && ch.Status__c != 'Processed'){
+                       fromId.add(ch.From_Account__c);
+                       toId.add(ch.To_Accountt__c);
+                   }
+            }
+            if(fromId != null && fromId.size() > 0 && toId != null && toId.size() > 0){
+                Map<Id,Account> frommap = new Map<Id,Account>([SELECT Id,Balance__c FROM Account WHERE Id =: fromId]);
+                Map<Id,Account> Tomap = new Map<Id,Account>([SELECT Id,Balance__c FROM Account WHERE Id =: toId]);
+                
+                for(Cheque__c ch : chList){
+                    if(ch.From_Account__c != null && ch.To_Accountt__c != null && ch.Amount__c !=null &&
+                       frommap.get(ch.From_Account__c).Balance__c != null && ch.Type__c == 'Digital' && ch.Status__c != 'Processed'){
+                           if(frommap.get(ch.From_Account__c).Balance__c > ch.Amount__c){
+                               Tomap.get(ch.From_Account__c).Balance__c += ch.Amount__c;
+                           }
+                           frommap.get(ch.From_Account__c).Balance__c -= ch.Amount__c;
+                           ch.Status__c = 'processed';
+                       }
+                    else{
+                        ch.addError('can not proceed');
+                    }
+                }
+                update frommap.values();
+                update Tomap.values();
+            }
+        }
+    }
+    public static void afterCheckObject(List<Cheque__c> chequeHistory){
+        List<Cheque_Activity__c> chequeActivityList = new List<Cheque_Activity__c>();
+        if(chequeHistory != null && chequeHistory.size() > 0){
+            for(Cheque__c ch1 : chequeHistory){
+                if(ch1.Type__c != 'Manual'){
+                    Cheque_Activity__c chequObject = new Cheque_Activity__c();
+                    chequObject.Amount__c = ch1.Amount__c;
+                    chequObject.Cheque__c = ch1.Id;
+                    chequObject.From_Account__c = ch1.To_Accountt__c;
+                    chequeActivityList.add(chequObject);
+                }
+            }
+            if(chequeActivityList != null && chequeActivityList.size() > 0){
+                insert chequeActivityList;
+            }
+        }
+    }
+}
